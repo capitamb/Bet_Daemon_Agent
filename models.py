@@ -15,6 +15,7 @@ class Match:
     away_team: str
     competition: str
     date: datetime
+    sport: str = "football"
     # Odds (decimal)
     odds_home: Optional[float] = None
     odds_draw: Optional[float] = None
