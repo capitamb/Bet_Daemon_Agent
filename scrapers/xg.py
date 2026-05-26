@@ -15,6 +15,15 @@ _HEADERS = {
     "Accept": "application/json",
 }
 
+# Shared client — avoids per-call TLS overhead
+_client: httpx.AsyncClient | None = None
+
+def _get_client() -> httpx.AsyncClient:
+    global _client
+    if _client is None or _client.is_closed:
+        _client = httpx.AsyncClient(timeout=15, headers=_HEADERS)
+    return _client
+
 # How many recent matches to sample per team for the rolling xG average
 SAMPLE_MATCHES = 10
 
@@ -31,10 +40,9 @@ def _normalize_team(name: str) -> str:
 # ---------------------------------------------------------------------------
 
 async def _fetch_seasons(tid: int) -> dict:
-    async with httpx.AsyncClient(timeout=15, headers=_HEADERS) as c:
-        r = await c.get(f"{SOFASCORE_BASE}/unique-tournament/{tid}/seasons")
-        r.raise_for_status()
-        return r.json()
+    r = await _get_client().get(f"{SOFASCORE_BASE}/unique-tournament/{tid}/seasons")
+    r.raise_for_status()
+    return r.json()
 
 
 async def _fetch_standings(tid: int, sid: int) -> dict:
@@ -43,28 +51,25 @@ async def _fetch_standings(tid: int, sid: int) -> dict:
     The standings rows contain ``team.id`` which is needed to look up per-team
     events.  They do NOT contain xG data — that lives in per-match stats.
     """
-    async with httpx.AsyncClient(timeout=15, headers=_HEADERS) as c:
-        r = await c.get(
-            f"{SOFASCORE_BASE}/unique-tournament/{tid}/season/{sid}/standings/total"
-        )
-        r.raise_for_status()
-        return r.json()
+    r = await _get_client().get(
+        f"{SOFASCORE_BASE}/unique-tournament/{tid}/season/{sid}/standings/total"
+    )
+    r.raise_for_status()
+    return r.json()
 
 
 async def _fetch_team_events(team_id: int, page: int) -> dict:
     """Return the last-events page for a team (page 0 = most recent)."""
-    async with httpx.AsyncClient(timeout=15, headers=_HEADERS) as c:
-        r = await c.get(f"{SOFASCORE_BASE}/team/{team_id}/events/last/{page}")
-        r.raise_for_status()
-        return r.json()
+    r = await _get_client().get(f"{SOFASCORE_BASE}/team/{team_id}/events/last/{page}")
+    r.raise_for_status()
+    return r.json()
 
 
 async def _fetch_event_stats(event_id: int) -> dict:
     """Return full statistics for a single match event."""
-    async with httpx.AsyncClient(timeout=15, headers=_HEADERS) as c:
-        r = await c.get(f"{SOFASCORE_BASE}/event/{event_id}/statistics")
-        r.raise_for_status()
-        return r.json()
+    r = await _get_client().get(f"{SOFASCORE_BASE}/event/{event_id}/statistics")
+    r.raise_for_status()
+    return r.json()
 
 
 # ---------------------------------------------------------------------------
@@ -177,21 +182,24 @@ async def get_league_xg(league_name: str) -> dict[str, TeamXG]:
         standings_data = await _fetch_standings(tid, sid)
         rows = standings_data.get("standings", [{}])[0].get("rows", [])
 
+        sem = asyncio.Semaphore(5)  # max 5 teams concurrently
+
         async def _process_team(row: dict) -> tuple[str, TeamXG] | None:
-            team_obj = row.get("team", {})
-            team_name = team_obj.get("name", "")
-            team_id = team_obj.get("id")
-            if not team_name or not team_id:
-                return None
-            total_for, total_against, count = await _team_xg_from_events(team_id, SAMPLE_MATCHES)
-            if count == 0:
-                return None
-            return team_name, TeamXG(
-                team=team_name,
-                xg_scored_avg=round(total_for / count, 3),
-                xg_conceded_avg=round(total_against / count, 3),
-                games_sampled=count,
-            )
+            async with sem:
+                team_obj = row.get("team", {})
+                team_name = team_obj.get("name", "")
+                team_id = team_obj.get("id")
+                if not team_name or not team_id:
+                    return None
+                total_for, total_against, count = await _team_xg_from_events(team_id, SAMPLE_MATCHES)
+                if count == 0:
+                    return None
+                return team_name, TeamXG(
+                    team=team_name,
+                    xg_scored_avg=round(total_for / count, 3),
+                    xg_conceded_avg=round(total_against / count, 3),
+                    games_sampled=count,
+                )
 
         team_results = await asyncio.gather(*[_process_team(row) for row in rows])
         for item in team_results:
@@ -201,7 +209,8 @@ async def get_league_xg(league_name: str) -> dict[str, TeamXG]:
     except Exception as e:
         print(f"[xg] Sofascore fetch failed for {league_name}: {e}")
 
-    _xg_cache[league_name] = result
+    if result:
+        _xg_cache[league_name] = result
     return result
 
 
