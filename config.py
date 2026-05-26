@@ -52,3 +52,21 @@ UNDERSTAT_LEAGUES = {
     "Bundesliga": "Bundesliga",
     "Ligue 1": "Ligue_1",
 }
+
+# Cup competitions — use consensus fair_prob instead of xG/Poisson
+CUP_COMPETITIONS = {"Champions League", "Europa League"}
+
+# Kelly criterion fraction (0.25 = quarter Kelly)
+KELLY_FRACTION = 0.25
+
+# Minimum bookmakers required for consensus to be valid
+CONSENSUS_MIN_BOOKMAKERS = 3
+
+# Sofascore unique-tournament IDs for domestic leagues
+SOFASCORE_TOURNAMENTS = {
+    "Premier League": 17,
+    "La Liga":        8,
+    "Serie A":        23,
+    "Bundesliga":     35,
+    "Ligue 1":        34,
+}
