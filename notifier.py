@@ -107,3 +107,34 @@ async def send_alerts_for_cycle(edges_with_matches: list[tuple[Match, EdgeResult
         await send_telegram(format_sport_alert(match, edge))
     if len(edges_with_matches) >= 2:
         await send_telegram(format_combinada_alert(edges_with_matches))
+
+def format_result_alert(
+    resolved_data: list[dict],
+    resolved_combinadas: list[dict],
+    new_bankroll: int,
+) -> str:
+    """Format Telegram message for resolved match results and combinadas P&L."""
+    lines = ["📋 RESULTADO REGISTRADO — Apuestas"]
+
+    for d in resolved_data:
+        emoji = "✅" if d["won"] else "❌"
+        lines.append(f"\n{emoji} {d['match']}")
+        lines.append(f"Score: {d['result_score']} | Mercado: {d['market']}")
+
+    if resolved_combinadas:
+        lines.append("\n🎯 COMBINADAS:")
+        total_pnl = 0
+        for c in resolved_combinadas:
+            emoji = "✅" if c["won"] else "❌"
+            label = (
+                c["ticket"].split(" - ", 2)[-1][:45]
+                if " - " in c["ticket"]
+                else c["ticket"][:45]
+            )
+            lines.append(f"{emoji} {label} ({c['legs_count']}L) | {c['pnl_cop']:+,} COP")
+            total_pnl += c["pnl_cop"]
+
+        lines.append(f"\nP&L sesión: {total_pnl:+,} COP")
+        lines.append(f"Bankroll: {new_bankroll:,} COP")
+
+    return "\n".join(lines)

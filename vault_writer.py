@@ -26,7 +26,7 @@ def write_edge_alert(match: Match, edge: EdgeResult, data_dir: Path) -> Path:
     path = data_dir / filename
 
     frontmatter = {
-        "sport": "football",
+        "sport": match.sport,
         "match": f"{match.home_team} vs {match.away_team}",
         "date": match.date.strftime("%Y-%m-%d %H:%M"),
         "competition": match.competition,
@@ -38,6 +38,8 @@ def write_edge_alert(match: Match, edge: EdgeResult, data_dir: Path) -> Path:
         "odds_current": edge.odds,
         "injuries": match.injuries or "",
         "line_movement": match.line_movement or "",
+        "news_signal": match.news_signal or "",
+        "polymarket_signal": match.polymarket_signal or "",
         "daemon_run": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
     }
 

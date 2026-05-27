@@ -34,7 +34,7 @@ async def fetch_upcoming_fixtures(hours_ahead: int = 48) -> list[Match]:
     async with httpx.AsyncClient(timeout=15) as client:
         for comp_id, comp_name in COMP_IDS.items():
             url = f"{FDAPI_BASE}/competitions/{comp_id}/matches"
-            params = {"dateFrom": date_from, "dateTo": date_to, "status": "SCHEDULED"}
+            params = {"dateFrom": date_from, "dateTo": date_to}
             try:
                 r = await client.get(url, headers=headers, params=params)
                 if r.status_code != 200:

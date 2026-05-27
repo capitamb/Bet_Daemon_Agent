@@ -30,6 +30,8 @@ class Match:
     # Context
     injuries: str = ""
     line_movement: str = ""
+    news_signal: str = ""       # breaking news: injuries, suspensions (from RSS)
+    polymarket_signal: str = "" # Polymarket implied prob (MMA only, price discovery)
 
 @dataclass
 class EdgeResult:

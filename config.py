@@ -56,6 +56,30 @@ UNDERSTAT_LEAGUES = {
 # Cup competitions — use consensus fair_prob instead of xG/Poisson
 CUP_COMPETITIONS = {"Champions League", "Europa League"}
 
+# Per-sport edge thresholds and signal floors
+# Keys match The Odds API sport key prefixes (e.g. "baseball" matches "baseball_mlb")
+SPORT_THRESHOLDS: dict[str, tuple[float, str]] = {
+    "football":           (0.06, "media"),   # handled by football pipeline, listed for reference
+    "soccer":             (0.06, "media"),
+    "tennis":             (0.07, "media"),
+    "basketball":         (0.05, "media"),
+    "mma":                (0.10, "alta"),
+    "americanfootball":   (0.06, "media"),
+    "icehockey":          (0.06, "media"),
+    "baseball":           (0.06, "media"),
+    "rugby":              (0.07, "media"),
+    "boxing":             (0.10, "alta"),
+}
+
+_DEFAULT_THRESHOLD = (0.08, "media")   # conservative fallback for unknown sports
+
+def get_sport_threshold(sport_key: str) -> tuple[float, str]:
+    """Return (min_edge, min_signal) for a given Odds API sport key."""
+    for prefix, threshold in SPORT_THRESHOLDS.items():
+        if sport_key.startswith(prefix):
+            return threshold
+    return _DEFAULT_THRESHOLD
+
 # Kelly criterion fraction (0.25 = quarter Kelly)
 KELLY_FRACTION = 0.25
 
